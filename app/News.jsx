@@ -6,15 +6,15 @@ import {
   FlatList,
   RefreshControl,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 
-import { useAppContext } from '../context/AppContext'; // jei nenaudoji – gali ištrinti
+import { useAppContext } from '../context/AppContext';
 import PostCard from '../components/PostCard';
+import COLORS from '../config/colors';
 
 const MOCK_NEWS_POSTS = [
   {
@@ -36,9 +36,9 @@ const MOCK_NEWS_POSTS = [
   },
   {
     id: 2,
-    title:
-      'TOP 5 Modifikacijos, Kurios Tikrai Pagerina Automobilio Dinamiką',
-    body: 'Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry\'s standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum..',
+    title: 'TOP 5 Modifikacijos, Kurios Tikrai Pagerina Automobilio Dinamiką',
+    body:
+      "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum..",
     author: 'Garage Dev',
     date: 'Vakar',
     imageUrls: [
@@ -59,9 +59,7 @@ const MOCK_NEWS_POSTS = [
     body: 'Pagaliau baigiau montuoti naujus coiloverius ir ratlankius! Pridedu nuotraukas.',
     author: 'BMW_Fan_LT',
     date: 'Šiandien',
-    imageUrls: [
-      'https://images.pexels.com/photos/1149831/pexels-photo-1149831.jpeg',
-    ],
+    imageUrls: ['https://images.pexels.com/photos/1149831/pexels-photo-1149831.jpeg'],
     likes: 450,
     comments: 78,
     shares: 63,
@@ -71,12 +69,11 @@ const MOCK_NEWS_POSTS = [
   {
     id: 5,
     title: 'Drift Sezono Atidarymas — Nauji Reikalavimai Dalyviams',
-    body: '2025 metų drift sezono taisyklės keičiasi: įvesti griežtesni saugos narvelių standartai.',
+    body:
+      '2025 metų drift sezono taisyklės keičiasi: įvesti griežtesni saugos narvelių standartai.',
     author: 'Racing Hub',
     date: 'Šiandien',
-    imageUrls: [
-      'https://images.pexels.com/photos/1149831/pexels-photo-1149831.jpeg',
-    ],
+    imageUrls: ['https://images.pexels.com/photos/1149831/pexels-photo-1149831.jpeg'],
     likes: 450,
     comments: 78,
     shares: 63,
@@ -90,15 +87,36 @@ const FILTERS = {
   FOLLOWING: 'following',
 };
 
+// ✅ Saugūs spalvų fallback’ai (kad niekas nebedingtų jei nėra rakto colors.js faile)
+const C = {
+  bg: COLORS.dark || '#020617',
+  surface: COLORS.surface || COLORS.dark2 || '#1e293b',
+  border: COLORS.borderStrong || COLORS.border || '#374151',
+  primary: COLORS.primary || COLORS.cyan || '#0ea5e9',
+  text: COLORS.text || '#e5e7eb',
+  muted: COLORS.muted || '#94a3b8',
+  white: '#ffffff',
+  ink: COLORS.ink || '#0f172a',
+  danger: COLORS.rose || '#ef4444',
+  slate200: COLORS.slate200 || '#cbd5e1',
+  slate600: COLORS.slate600 || '#475569',
+};
+
 const News = () => {
   const [mockPosts, setMockPosts] = useState(MOCK_NEWS_POSTS);
   const [refreshing, setRefreshing] = useState(false);
   const [openMenuPostId, setOpenMenuPostId] = useState(null);
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { followingFeed, fetchFollowingFeed, activeCarId, newsFilter, setNewsFilter, unreadNotificationsCount } = useAppContext();
 
-  console.log('📰 News component render, unreadNotificationsCount:', unreadNotificationsCount);
+  const {
+    followingFeed,
+    fetchFollowingFeed,
+    activeCarId,
+    newsFilter,
+    setNewsFilter,
+    unreadNotificationsCount,
+  } = useAppContext();
 
   const selectedFilter = newsFilter;
 
@@ -111,18 +129,16 @@ const News = () => {
 
   useEffect(() => {
     fetchFollowingFeed();
-  }, [activeCarId]); // Refetch kai pasikeičia aktyvi mašina
+  }, [activeCarId]);
 
-  // Refetch when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
       fetchFollowingFeed();
     }, [activeCarId])
   );
 
-  const postsToRender = selectedFilter === FILTERS.OFFICIAL
-    ? mockPosts
-    : followingFeed;
+  const postsToRender =
+    selectedFilter === FILTERS.OFFICIAL ? mockPosts : followingFeed;
 
   const handleAddPost = () => {
     router.push('/PostAdd');
@@ -139,7 +155,7 @@ const News = () => {
   const renderFilterAndAddButton = () => (
     <View style={styles.filterAndAddContainer}>
       <TouchableOpacity style={styles.addButton} onPress={handleAddPost}>
-        <Ionicons name="add-circle" size={60} color="#38bdf8" />
+        <Ionicons name="add-circle" size={60} color={C.primary} />
       </TouchableOpacity>
 
       <View style={styles.filterGroup}>
@@ -157,7 +173,7 @@ const News = () => {
                 : 'document-text-outline'
             }
             size={20}
-            color={selectedFilter === FILTERS.OFFICIAL ? '#0f172a' : '#94a3b8'}
+            color={selectedFilter === FILTERS.OFFICIAL ? C.ink : C.muted}
             style={styles.iconMargin}
           />
           <Text
@@ -179,11 +195,9 @@ const News = () => {
           onPress={() => setNewsFilter(FILTERS.FOLLOWING)}
         >
           <Ionicons
-            name={
-              selectedFilter === FILTERS.FOLLOWING ? 'heart' : 'heart-outline'
-            }
+            name={selectedFilter === FILTERS.FOLLOWING ? 'heart' : 'heart-outline'}
             size={20}
-            color={selectedFilter === FILTERS.FOLLOWING ? '#0f172a' : '#94a3b8'}
+            color={selectedFilter === FILTERS.FOLLOWING ? C.ink : C.muted}
             style={styles.iconMargin}
           />
           <Text
@@ -204,16 +218,17 @@ const News = () => {
       <View style={styles.topBar}>
         <View style={styles.headerTitleGroup}>
           <View style={styles.mainIconWrapper}>
-            <Ionicons name="newspaper-outline" size={26} color="#38bdf8" />
+            <Ionicons name="newspaper-outline" size={26} color={C.primary} />
           </View>
           <Text style={styles.mainTitleSmall}>Naujienų Srautas</Text>
         </View>
+
         <View style={styles.iconGroup}>
           <TouchableOpacity
             style={styles.topBarIcon}
             onPress={() => router.push('/Notifications')}
           >
-            <Ionicons name="notifications-outline" size={27} color="#f8fafc" />
+            <Ionicons name="notifications-outline" size={27} color={C.slate200} />
             {unreadNotificationsCount > 0 && (
               <View style={styles.notificationBadge}>
                 <Text style={styles.notificationBadgeText}>
@@ -224,13 +239,14 @@ const News = () => {
           </TouchableOpacity>
         </View>
       </View>
+
       {renderFilterAndAddButton()}
     </View>
   );
 
   const renderEmptyComponent = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="cloud-offline-outline" size={64} color="#475569" />
+      <Ionicons name="cloud-offline-outline" size={64} color={C.slate600} />
       <Text style={styles.emptyText}>
         {selectedFilter === FILTERS.OFFICIAL
           ? 'Šiuo metu nėra jokių naujų oficialių naujienų.'
@@ -257,12 +273,12 @@ const News = () => {
         ListEmptyComponent={renderEmptyComponent}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        onScrollBeginDrag={handleCloseMenu}   // <- scroll pradžia uždaro dropdown
+        onScrollBeginDrag={handleCloseMenu}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#38bdf8"
+            tintColor={C.primary}
             progressViewOffset={insets.top + 50}
           />
         }
@@ -274,7 +290,7 @@ const News = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#020617',
+    backgroundColor: C.bg,
     paddingTop: 20,
   },
   listContent: {
@@ -283,7 +299,7 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     marginBottom: 16,
-    backgroundColor: '#020617',
+    backgroundColor: C.bg,
   },
   topBar: {
     flexDirection: 'row',
@@ -300,7 +316,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 999,
-    backgroundColor: 'rgba(56,189,248,0.18)',
+    backgroundColor: `rgba(14,165,233,0.18)`, // pagal tavo primary (#0ea5e9)
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -308,7 +324,7 @@ const styles = StyleSheet.create({
   mainTitleSmall: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#e5e7eb',
+    color: C.text,
   },
   iconGroup: {
     flexDirection: 'row',
@@ -317,17 +333,26 @@ const styles = StyleSheet.create({
     marginLeft: 20,
     position: 'relative',
   },
+
+  // ✅ vienas badge (pataisyta, kad nedubliuotųsi)
   notificationBadge: {
     position: 'absolute',
-    top: -2,
-    right: -4,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#ef4444',
-    borderWidth: 1,
-    borderColor: '#020617',
+    top: 8,
+    right: 8,
+    backgroundColor: C.danger,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
   },
+  notificationBadgeText: {
+    color: C.white,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -337,7 +362,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     marginTop: 16,
-    color: '#cbd5e1',
+    color: C.slate200,
     fontSize: 15,
     textAlign: 'center',
   },
@@ -352,6 +377,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexShrink: 1,
   },
+  // ✅ neaktyvus background grįžo (naudoja surface)
   filterButton: {
     flexDirection: 'row',
     paddingHorizontal: 15,
@@ -359,14 +385,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 999,
-    backgroundColor: '#1e293b',
+    backgroundColor: C.surface,
   },
   filterButtonMargin: {
     marginLeft: 10,
   },
   filterButtonActive: {
-    backgroundColor: '#38bdf8',
-    shadowColor: '#38bdf8',
+    backgroundColor: C.primary,
+    shadowColor: C.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.5,
     shadowRadius: 5,
@@ -378,37 +404,21 @@ const styles = StyleSheet.create({
   filterText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#94a3b8',
+    color: C.muted,
   },
   filterTextActive: {
-    color: '#0f172a',
+    color: C.ink,
     fontWeight: '700',
   },
+
   addButton: {
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    backgroundColor: `rgba(14,165,233,0.15)`, 
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 15,
-  },
-  notificationBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: '#ef4444',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 5,
-  },
-  notificationBadgeText: {
-    color: '#ffffff',
-    fontSize: 11,
-    fontWeight: '700',
   },
 });
 

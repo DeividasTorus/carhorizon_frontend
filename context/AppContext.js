@@ -4,15 +4,28 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import io from 'socket.io-client';
 import api from '../utils/api';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+import { API_URL } from '../config/env';
 
 const AppContext = createContext(null);
 export const useAppContext = () => useContext(AppContext);
 
-// IP tas pats kaip BASE_URL, tik be /api
-const SOCKET_URL = 'http://192.168.1.165:4000';
+// WebSocket URL (same as API_URL)
+const SOCKET_URL = API_URL;
 
 // Avatarų cache direktorija (privati app'o cache vieta)
 const AVATAR_CACHE_DIR = FileSystem.cacheDirectory + 'avatars';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 
 export const AppProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -36,9 +49,12 @@ export const AppProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [expoPushToken, setExpoPushToken] = useState(null);
+  const [pushPermissionStatus, setPushPermissionStatus] = useState(null);
 
   // --- AVATAR CACHE (url -> local file uri) ---
   const [avatarCache, setAvatarCache] = useState({});
+
 
   const ensureAvatarDirExists = async () => {
     try {
@@ -98,6 +114,102 @@ export const AppProvider = ({ children }) => {
     setAvatarCache({});
   };
 
+  const syncPushToken = async (newToken) => {
+    if (!token || !newToken) return;
+
+    try {
+      const cachedToken = await AsyncStorage.getItem('expoPushToken');
+      if (cachedToken === newToken) {
+        return;
+      }
+
+      const res = await api.post(
+        '/notifications/push-token',
+        { expoPushToken: newToken },
+        token
+      );
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        console.log('🔔 push-token sync failed', res.status, body);
+        return;
+      }
+
+      await AsyncStorage.setItem('expoPushToken', newToken);
+      console.log('🔔 Expo push token synced with backend');
+    } catch (e) {
+      console.log('🔔 syncPushToken error', e);
+    }
+  };
+
+  const registerForPushNotifications = async () => {
+    if (!token) {
+      console.log('🔔 Skipping push registration - missing auth token');
+      return null;
+    }
+
+    try {
+      if (!Device.isDevice) {
+        console.log('🔔 Push notifications require a physical device');
+        return null;
+      }
+
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+
+      setPushPermissionStatus(finalStatus);
+
+      if (finalStatus !== 'granted') {
+        console.log('🔔 Push notification permission not granted');
+        return null;
+      }
+
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'default',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF231F7C',
+          bypassDnd: true,
+          lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        });
+      }
+
+      const projectId =
+        Constants?.expoConfig?.extra?.eas?.projectId || Constants?.easConfig?.projectId;
+
+      if (!projectId) {
+        console.log('⚠️ Missing EAS projectId; set extra.eas.projectId in app.json to issue push tokens');
+      }
+
+      const tokenResponse = await Notifications.getExpoPushTokenAsync(
+        projectId ? { projectId } : undefined
+      );
+
+      const pushToken = tokenResponse?.data;
+
+      if (pushToken) {
+        setExpoPushToken(pushToken);
+        await syncPushToken(pushToken);
+      }
+
+      return pushToken || null;
+    } catch (e) {
+      console.log('🔔 registerForPushNotifications error', e);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    if (!token) return;
+    registerForPushNotifications();
+  }, [token]);
+
   // --- AUTH RESTORE ---
   useEffect(() => {
     const restore = async () => {
@@ -136,8 +248,11 @@ export const AppProvider = ({ children }) => {
     setUser(null);
     setToken(null);
     setActiveCarId(null);
+    setExpoPushToken(null);
+    setPushPermissionStatus(null);
     await AsyncStorage.removeItem('user');
     await AsyncStorage.removeItem('token');
+    await AsyncStorage.removeItem('expoPushToken');
   };
 
   // --- AUTH FUNKCIJOS ---
@@ -175,6 +290,40 @@ export const AppProvider = ({ children }) => {
     ]);
   };
 
+
+  const changePassword = async (currentPassword, newPassword) => {
+    if (!token) throw new Error('Not authenticated');
+
+    // Paprastos validacijos (gali išmesti, jei screen'e jau turi)
+    if (!currentPassword || !newPassword) {
+      throw new Error('Missing password fields');
+    }
+
+    // ✅ PASIKEISK ENDPOINT JEI REIKIA
+    // pvz: '/users/change-password' arba '/auth/password' ir pan.
+    const res = await api.put(
+      '/auth/change-password',
+      { currentPassword, newPassword },
+      token
+    );
+
+    const body = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      // jei tokenas nebegalioja – galima automatiškai išloginti
+      if (res.status === 401) {
+        try { await logout(); } catch { }
+      }
+
+      throw new Error(body.error || body.message || 'Failed to change password');
+    }
+
+    return body;
+  };
+
+
+  // Google OAuth login logika pašalinta pagal vartotojo prašymą
+
   const logout = async () => {
     await clearAuth();
     setNewsPosts([]);
@@ -185,7 +334,7 @@ export const AppProvider = ({ children }) => {
     setOtherReadTimes({});
 
     // 🔥 išvalom avatarų cache katalogą
-    clearAvatarCache().catch(() => {});
+    clearAvatarCache().catch(() => { });
 
     if (socket) {
       socket.disconnect();
@@ -200,7 +349,7 @@ export const AppProvider = ({ children }) => {
       const res = await api.get('/news', overrideToken);
       if (!res.ok) return;
       const body = await res.json();
-      
+
       // Debug: Check what backend returns
       if (body && body.length > 0) {
         console.log('🔍 Backend /news first post fields:', Object.keys(body[0]));
@@ -210,7 +359,7 @@ export const AppProvider = ({ children }) => {
           likes: body[0].likes
         });
       }
-      
+
       // Normalize backend fields to frontend expected format
       const normalizedPosts = (Array.isArray(body) ? body : []).map(post => ({
         ...post,
@@ -219,7 +368,7 @@ export const AppProvider = ({ children }) => {
         likes: post.likes_count ?? post.likes ?? 0,
         comments: post.comments_count ?? post.comments ?? 0
       }));
-      
+
       setNewsPosts(normalizedPosts);
     } catch (e) {
       console.log('fetchNewsPosts error', e);
@@ -240,10 +389,10 @@ export const AppProvider = ({ children }) => {
         return;
       }
       const body = await res.json().catch(() => ({}));
-      
+
       // Priimam paprastą masyvą arba { posts, ... } struktūrą
       const posts = body.posts || (Array.isArray(body) ? body : []);
-      
+
       // Debug: Check what backend returns
       if (posts && posts.length > 0) {
         console.log('🔍 Backend /posts/feed first post fields:', Object.keys(posts[0]));
@@ -253,7 +402,7 @@ export const AppProvider = ({ children }) => {
           likes: posts[0].likes
         });
       }
-      
+
       // Normalize backend fields to frontend expected format
       const normalizedPosts = (Array.isArray(posts) ? posts : []).map(post => ({
         ...post,
@@ -262,7 +411,7 @@ export const AppProvider = ({ children }) => {
         likes: post.likes_count ?? post.likes ?? 0,
         comments: post.comments_count ?? post.comments ?? 0
       }));
-      
+
       setFollowingFeed(normalizedPosts);
     } catch (e) {
       console.log('fetchFollowingFeed error', e);
@@ -272,23 +421,23 @@ export const AppProvider = ({ children }) => {
 
   const fetchCarPosts = async (carId) => {
     if (!carId) return [];
-    
+
     try {
       console.log('🔍 Fetching posts for car:', carId);
       const res = await api.get(`/posts/car/${carId}`);
       console.log('🔍 Response status:', res.status);
-      
+
       if (!res.ok) {
         console.log('🔍 Response not OK, returning empty');
         return [];
       }
-      
+
       const body = await res.json();
       console.log('🔍 Response body:', body);
-      
+
       const posts = Array.isArray(body) ? body : (body.posts || []);
       console.log('🔍 Parsed posts count:', posts.length);
-      
+
       // Normalize fields
       const normalizedPosts = posts.map(post => ({
         ...post,
@@ -296,7 +445,7 @@ export const AppProvider = ({ children }) => {
         likes: post.likes_count ?? post.likes ?? 0,
         comments: post.comments_count ?? post.comments ?? 0
       }));
-      
+
       return normalizedPosts;
     } catch (e) {
       console.log('fetchCarPosts error', e);
@@ -343,15 +492,15 @@ export const AppProvider = ({ children }) => {
     try {
       console.log('📊 fetchCarStats starting for carId:', carId);
       const res = await api.get(`/cars/${carId}/stats`, t);
-      
+
       if (!res.ok) {
         const errorBody = await res.text();
         console.error('❌ fetchCarStats HTTP error:', res.status, errorBody);
-        
+
         // FALLBACK: Jei backend negrąžina, naudok mock data iš localStorage
         console.log('💾 Trying fallback mock data from localStorage...');
         const mockStats = JSON.parse(localStorage.getItem(`car_stats_${carId}`) || '{}');
-        
+
         if (mockStats.followers_count !== undefined) {
           console.log('✅ Using mock data:', mockStats);
           setCarStats((prev) => ({
@@ -365,10 +514,10 @@ export const AppProvider = ({ children }) => {
         }
         return;
       }
-      
+
       const body = await res.json();
       console.log('✅ fetchCarStats response:', body);
-      
+
       setCarStats((prev) => ({
         ...prev,
         [carId]: {
@@ -377,11 +526,11 @@ export const AppProvider = ({ children }) => {
           posts: body.posts_count || 0,
         },
       }));
-      
-      console.log('✅ carStats updated for', carId, { 
-        followers: body.followers_count, 
-        following: body.following_count, 
-        posts: body.posts_count 
+
+      console.log('✅ carStats updated for', carId, {
+        followers: body.followers_count,
+        following: body.following_count,
+        posts: body.posts_count
       });
     } catch (e) {
       console.error('❌ fetchCarStats error:', e);
@@ -461,7 +610,15 @@ export const AppProvider = ({ children }) => {
     if (!res.ok) {
       throw new Error(body.error || body.message || 'Failed to add car');
     }
-    setCars((prev) => [...prev, body]);
+
+    const newCar = body;
+    setCars((prev) => [...prev, newCar]);
+
+    // If this is the first car (user has no active car), automatically activate it
+    if (!activeCarId && newCar.id) {
+      setActiveCarId(newCar.id);
+      console.log('🚗 First car automatically activated:', newCar.id);
+    }
   };
 
   const searchCarByPlate = async (plate) => {
@@ -486,7 +643,7 @@ export const AppProvider = ({ children }) => {
     const existingChat = inboxMessages?.find((msg) => {
       const msgCarId = msg.car_id || msg.initiator_car_id;
       const otherCarId = msg.other_car_id || msg.other_initiator_car_id;
-      
+
       return (
         (String(msgCarId) === String(carId) && String(otherCarId) === String(activeCarId)) ||
         (String(msgCarId) === String(activeCarId) && String(otherCarId) === String(carId))
@@ -497,7 +654,7 @@ export const AppProvider = ({ children }) => {
     if (existingChat) {
       setCurrentChatId(existingChat.id);
       await fetchChatMessages(existingChat.id);
-      
+
       // Naudok router'į iš expo-router
       const router = require('expo-router').router;
       router.push({
@@ -509,7 +666,7 @@ export const AppProvider = ({ children }) => {
           otherCarId: String(carId),
         },
       });
-      
+
       return existingChat.id;
     }
 
@@ -526,7 +683,7 @@ export const AppProvider = ({ children }) => {
     const chatId = body.chatId || body.id;
     setCurrentChatId(chatId);
     await fetchChatMessages(chatId);
-    
+
     // Nukreipk į naują chat'ą
     const router = require('expo-router').router;
     router.push({
@@ -538,7 +695,7 @@ export const AppProvider = ({ children }) => {
         otherCarId: String(carId),
       },
     });
-    
+
     // Neiškvies fetchInbox() čia - jis bus iškviestas tik kai parašys žinutę
     return chatId;
   };
@@ -659,7 +816,7 @@ export const AppProvider = ({ children }) => {
     console.log('❤️ Sending like request for post:', postId);
     const res = await api.post(`/posts/${postId}/like`, {}, token);
     console.log('❤️ Like response status:', res.status);
-    
+
     const body = await res.json().catch(() => ({}));
     console.log('❤️ Like response body:', JSON.stringify(body));
 
@@ -670,7 +827,7 @@ export const AppProvider = ({ children }) => {
     // Handle different backend response formats
     const isLiked = body.liked ?? body.is_liked ?? body.isLiked ?? false;
     const likesCount = body.likesCount ?? body.likes_count ?? body.likes ?? 0;
-    
+
     console.log('❤️ Parsed like data:', { postId, isLiked, likesCount });
 
     // Update local state
@@ -678,10 +835,10 @@ export const AppProvider = ({ children }) => {
       (posts || []).map((post) =>
         post.id === postId
           ? {
-              ...post,
-              likes: likesCount,
-              isLikedByMe: isLiked,
-            }
+            ...post,
+            likes: likesCount,
+            isLikedByMe: isLiked,
+          }
           : post
       );
 
@@ -802,9 +959,9 @@ export const AppProvider = ({ children }) => {
     }
 
     // Update local cars state with new avatar
-    setCars((prev) => 
-      prev.map((car) => 
-        car.id === carId 
+    setCars((prev) =>
+      prev.map((car) =>
+        car.id === carId
           ? { ...car, avatar_url: body.avatar_url }
           : car
       )
@@ -859,10 +1016,10 @@ export const AppProvider = ({ children }) => {
         (posts || []).map((post) =>
           post.id === post_id
             ? {
-                ...post,
-                likes: likes_count,
-                isLikedByMe: liked ?? post.isLikedByMe, // Only update if provided
-              }
+              ...post,
+              likes: likes_count,
+              isLikedByMe: liked ?? post.isLikedByMe, // Only update if provided
+            }
             : post
         );
 
@@ -907,15 +1064,15 @@ export const AppProvider = ({ children }) => {
     // Listen for new notification events
     s.on('new_notification', (payload) => {
       console.log('🔔 Socket new_notification event:', payload);
-      
+
       // Only add notification if it's for this user (not for the actor)
       // recipient_car_id should match activeCarId
       if (payload.recipient_car_id === activeCarId) {
         console.log('✅ Notification is for me, adding...');
-        
+
         // Add new notification to the list
         setNotifications((prev) => [payload, ...prev]);
-        
+
         // Increment unread count if notification is unread
         if (!payload.is_read) {
           setUnreadNotificationsCount((prev) => prev + 1);
@@ -1120,11 +1277,11 @@ export const AppProvider = ({ children }) => {
       const updatePosts = (posts) =>
         posts.map((p) =>
           p.id === postId
-            ? { 
-                ...p, 
-                description: updatedPost.description || description, 
-                body: updatedPost.description || description 
-              }
+            ? {
+              ...p,
+              description: updatedPost.description || description,
+              body: updatedPost.description || description
+            }
             : p
         );
 
@@ -1149,24 +1306,24 @@ export const AppProvider = ({ children }) => {
     try {
       const res = await api.get('/notifications', token);
       console.log('🔔 Notifications response status:', res.status);
-      
+
       if (!res.ok) {
         console.log('🔔 Response not OK:', res.status);
         setNotifications([]);
         setUnreadNotificationsCount(0);
         return;
       }
-      
+
       const response = await res.json().catch(() => ({}));
       console.log('🔔 Notifications response body:', JSON.stringify(response));
-      
+
       // Flexible response handling - backend might return different formats
       const notificationsData = response.notifications || response.data || (Array.isArray(response) ? response : []);
       const unreadCount = response.unread_count ?? response.unreadCount ?? 0;
-      
+
       console.log('🔔 Parsed notifications:', notificationsData.length, 'items');
       console.log('🔔 Unread count:', unreadCount);
-      
+
       setNotifications(Array.isArray(notificationsData) ? notificationsData : []);
       setUnreadNotificationsCount(unreadCount);
     } catch (e) {
@@ -1183,9 +1340,9 @@ export const AppProvider = ({ children }) => {
 
     try {
       await api.put(`/notifications/${notificationId}/read`, {}, token);
-      
+
       // Update local state
-      setNotifications(prev => 
+      setNotifications(prev =>
         prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
       );
       setUnreadNotificationsCount(prev => Math.max(0, prev - 1));
@@ -1199,7 +1356,7 @@ export const AppProvider = ({ children }) => {
 
     try {
       await api.put('/notifications/read-all', {}, token);
-      
+
       // Update local state
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
       setUnreadNotificationsCount(0);
@@ -1207,6 +1364,24 @@ export const AppProvider = ({ children }) => {
       console.log('markAllNotificationsAsRead error', e);
     }
   };
+
+  useEffect(() => {
+    if (!token) return;
+
+    const receivedSub = Notifications.addNotificationReceivedListener(() => {
+      // Keep server-side state in sync when a push arrives in foreground
+      fetchNotifications();
+    });
+
+    const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
+      console.log('🔔 Notification response', response);
+    });
+
+    return () => {
+      receivedSub.remove();
+      responseSub.remove();
+    };
+  }, [token]);
 
   // Fetch notifications on initial load only
   // Real-time updates handled by WebSocket 'new_notification' event
@@ -1237,6 +1412,7 @@ export const AppProvider = ({ children }) => {
 
     login,
     register,
+    changePassword,
     logout,
 
     fetchNewsPosts,
@@ -1261,7 +1437,7 @@ export const AppProvider = ({ children }) => {
 
     // 👇 NAUJAS helperis komponentams
     getCachedAvatarUri,
-    
+
     // 👇 Mock data helpers (jei backend neveikia)
     setMockCarStats: (carId, stats) => {
       localStorage.setItem(`car_stats_${carId}`, JSON.stringify(stats));
@@ -1294,6 +1470,11 @@ export const AppProvider = ({ children }) => {
     // Post management
     deletePost,
     editPost,
+
+    // Push notifications
+    expoPushToken,
+    pushPermissionStatus,
+    registerForPushNotifications,
 
     // Notifications
     notifications,

@@ -1,4 +1,7 @@
 import React from 'react';
+import * as WebBrowser from 'expo-web-browser';
+// Užtikrina, kad Google OAuth redirect veiktų visur
+WebBrowser.maybeCompleteAuthSession();
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, Button } from 'react-native';
 

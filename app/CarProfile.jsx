@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  ScrollView,
+  TextInput,
   TouchableOpacity,
-  ActivityIndicator,
-  Image,
+  StyleSheet,
   Alert,
-  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Image,
+  ScrollView,
+  ActivityIndicator,
   Dimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -18,8 +20,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppContext } from '../context/AppContext';
 import LicensePlate from '../components/LicensePlate';
-import PostCard from '../components/PostCard';
-import { BASE_URL } from '../utils/api';
+import { API_URL } from '../config/env';
+import COLORS from '../config/colors';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -48,35 +50,31 @@ const CarProfile = () => {
   const fetchCarProfile = async () => {
     setLoading(true);
     try {
-      // Gauti automobilio informaciją
-      const carRes = await fetch(`${BASE_URL}/cars/${carId}`, {
+      const carRes = await fetch(`${API_URL}/api/cars/${carId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const carData = await carRes.json().catch(() => ({}));
 
       if (carRes.ok && carData) {
-        // Backend grąžina { success, car: {...} }
         const carInfo = carData.car || carData;
         setCar(carInfo);
-        // Išsaugoti stats jei yra
         if (carInfo.stats) {
           setFollowersCount(carInfo.stats.followers_count || 0);
         }
       }
 
-      // Gauti automobilio postus
-      const postsRes = await fetch(`${BASE_URL}/posts/car/${carId}?limit=50`, {
+      const postsRes = await fetch(`${API_URL}/api/posts/car/${carId}?limit=50`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const postsData = await postsRes.json().catch(() => ({}));
       const postsList = postsData.posts || (Array.isArray(postsData) ? postsData : []);
       setPosts(postsList);
 
-      // Gauti follow statusą (tik jei turime aktyvią mašiną)
       if (activeCarId) {
-        const followRes = await fetch(`${BASE_URL}/cars/${carId}/follow-status?activeCarId=${activeCarId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const followRes = await fetch(
+          `${API_URL}/api/cars/${carId}/follow-status?activeCarId=${activeCarId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
         const followData = await followRes.json().catch(() => ({}));
         setIsFollowing(followData.isFollowing || false);
       }
@@ -96,7 +94,7 @@ const CarProfile = () => {
 
     try {
       const endpoint = isFollowing ? 'unfollow' : 'follow';
-      const res = await fetch(`${BASE_URL}/cars/${carId}/${endpoint}`, {
+      const res = await fetch(`${API_URL}/api/cars/${carId}/${endpoint}`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -127,11 +125,7 @@ const CarProfile = () => {
     }
 
     try {
-      // Sukurti arba rasti chatą su šiuo automobiliu
-      // Pass car avatar_url for chat display
-      const carAvatarUrl = car.avatar_url
-        ? `http://192.168.1.165:4000${car.avatar_url}`
-        : null;
+      const carAvatarUrl = car.avatar_url ? `${API_URL}${car.avatar_url}` : null;
       await openChat(car.id, car.plate, car.model || '', carAvatarUrl);
     } catch (e) {
       console.log('handleMessage error', e);
@@ -143,7 +137,7 @@ const CarProfile = () => {
     return (
       <View style={[styles.container, styles.centered]}>
         <StatusBar style="light" />
-        <ActivityIndicator size="large" color="#38bdf8" />
+        <ActivityIndicator size="large" color={COLORS.primary2} />
         <Text style={styles.loadingText}>Kraunama...</Text>
       </View>
     );
@@ -153,7 +147,7 @@ const CarProfile = () => {
     return (
       <View style={[styles.container, styles.centered]}>
         <StatusBar style="light" />
-        <Ionicons name="car-sport-outline" size={64} color="#475569" />
+        <Ionicons name="car-sport-outline" size={64} color={COLORS.gray} />
         <Text style={styles.emptyText}>Automobilis nerastas</Text>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Text style={styles.backButtonText}>Grįžti</Text>
@@ -164,9 +158,7 @@ const CarProfile = () => {
 
   const isOwnCar = car.owner_id === user?.id;
 
-  const carAvatarUrl = car.avatar_url
-    ? `http://192.168.1.165:4000${car.avatar_url}`
-    : null;
+  const carAvatarUrl = car.avatar_url ? `${API_URL}${car.avatar_url}` : null;
   const carInitial = car.plate?.[0]?.toUpperCase() || 'C';
 
   return (
@@ -177,7 +169,7 @@ const CarProfile = () => {
         {/* TOP BAR / HEADER */}
         <View style={[styles.backRow]}>
           <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={26} color="#e5e7eb" />
+            <Ionicons name="arrow-back" size={26} color={COLORS.text} />
           </TouchableOpacity>
 
           <View style={styles.headerInfo}>
@@ -193,9 +185,7 @@ const CarProfile = () => {
                 marginLeft: 25,
               }}
             />
-            {car.model && (
-              <Text style={styles.subtitle}>{car.model}</Text>
-            )}
+            {car.model && <Text style={styles.subtitle}>{car.model}</Text>}
           </View>
         </View>
 
@@ -243,34 +233,31 @@ const CarProfile = () => {
           {!isOwnCar && (
             <View style={styles.actionsRow}>
               <TouchableOpacity
-                style={[styles.actionButton, styles.followButton, isFollowing && styles.followingButton]}
+                style={[
+                  styles.actionButton,
+                  styles.followButton,
+                  isFollowing && styles.followingButton,
+                ]}
                 onPress={handleFollow}
               >
                 <Ionicons
                   name={isFollowing ? 'heart' : 'heart-outline'}
                   size={20}
-                  color={isFollowing ? '#ef4444' : '#e5e7eb'}
+                  color={isFollowing ? COLORS.rose : COLORS.text}
                 />
-                <Text style={styles.actionButtonText}>
-                  {isFollowing ? 'Sekamas' : 'Sekti'}
-                </Text>
+                <Text style={styles.actionButtonText}>{isFollowing ? 'Sekamas' : 'Sekti'}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.actionButton, styles.messageButton]}
-                onPress={handleMessage}
-              >
-                <Ionicons name="chatbubble-outline" size={20} color="#0f172a" />
-                <Text style={[styles.actionButtonText, { color: '#0f172a' }]}>
-                  Rašyti
-                </Text>
+              <TouchableOpacity style={[styles.actionButton, styles.messageButton]} onPress={handleMessage}>
+                <Ionicons name="chatbubble-outline" size={20} color={COLORS.dark} />
+                <Text style={[styles.actionButtonText, { color: COLORS.dark }]}>Rašyti</Text>
               </TouchableOpacity>
             </View>
           )}
 
           {isOwnCar && (
             <View style={styles.ownCarBadge}>
-              <Ionicons name="checkmark-circle" size={18} color="#10b981" />
+              <Ionicons name="checkmark-circle" size={18} color={COLORS.emerald} />
               <Text style={styles.ownCarText}>Tai tavo automobilis</Text>
             </View>
           )}
@@ -279,71 +266,61 @@ const CarProfile = () => {
         {/* Posts Section */}
         <View style={styles.postsSection}>
           <View style={styles.postsSectionHeader}>
-            <Ionicons name="grid-outline" size={24} color="#38bdf8" />
+            <Ionicons name="grid-outline" size={24} color={COLORS.primary2} />
           </View>
+
           {posts.length === 0 ? (
             <View style={styles.emptyPosts}>
-              <Ionicons name="images-outline" size={48} color="#475569" />
+              <Ionicons name="images-outline" size={48} color={COLORS.gray} />
               <Text style={styles.emptyPostsText}>
-                {isOwnCar
-                  ? 'Tu dar neturi jokių įrašų. Sukurk pirmą!'
-                  : 'Šis automobilis dar neturi įrašų'}
+                {isOwnCar ? 'Tu dar neturi jokių įrašų. Sukurk pirmą!' : 'Šis automobilis dar neturi įrašų'}
               </Text>
             </View>
           ) : (
             <View style={styles.postsGrid}>
-              {posts.map((post) => {
-                if (!post || !post.id) return null;
+              {posts
+                .map((post) => {
+                  if (!post || !post.id) return null;
 
-                const images = Array.isArray(post.images) ? post.images : [];
-                const firstImage = images[0];
+                  const images = Array.isArray(post.images) ? post.images : [];
+                  const firstImage = images[0];
 
-                // Handle both string and object image formats
-                let imageUrl = null;
-                if (firstImage) {
-                  const imagePath = typeof firstImage === 'string'
-                    ? firstImage
-                    : firstImage.image_url;
-
-                  if (imagePath) {
-                    // Remove /api from BASE_URL for image paths
-                    const baseUrlWithoutApi = BASE_URL.replace('/api', '');
-                    imageUrl = imagePath.startsWith('http')
-                      ? imagePath
-                      : `${baseUrlWithoutApi}${imagePath}`;
+                  let imageUrl = null;
+                  if (firstImage) {
+                    const imagePath = typeof firstImage === 'string' ? firstImage : firstImage.image_url;
+                    if (imagePath) {
+                      imageUrl = imagePath.startsWith('http') ? imagePath : `${API_URL}${imagePath}`;
+                    }
                   }
-                }
 
-                return (
-                  <TouchableOpacity
-                    key={post.id}
-                    style={styles.postGridItem}
-                    onPress={() => router.push({
-                      pathname: '/PostDetail',
-                      params: { postId: post.id, carId: carId }
-                    })}
-                  >
-                    {imageUrl ? (
-                      <Image
-                        source={{ uri: imageUrl }}
-                        style={styles.postGridImage}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View style={styles.postGridPlaceholder}>
-                        <Ionicons name="image-outline" size={32} color="#475569" />
-                      </View>
-                    )}
+                  return (
+                    <TouchableOpacity
+                      key={post.id}
+                      style={styles.postGridItem}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/PostDetail',
+                          params: { postId: post.id, carId: carId },
+                        })
+                      }
+                    >
+                      {imageUrl ? (
+                        <Image source={{ uri: imageUrl }} style={styles.postGridImage} resizeMode="cover" />
+                      ) : (
+                        <View style={styles.postGridPlaceholder}>
+                          <Ionicons name="image-outline" size={32} color={COLORS.gray} />
+                        </View>
+                      )}
 
-                    {/* Multiple images indicator */}
-                    {images.length > 1 && (
-                      <View style={styles.postMultipleIndicator}>
-                        <Ionicons name="copy-outline" size={16} color="#fff" />
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              }).filter(Boolean)}
+                      {images.length > 1 && (
+                        <View style={styles.postMultipleIndicator}>
+                          <Ionicons name="copy-outline" size={16} color="#fff" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })
+                .filter(Boolean)}
             </View>
           )}
         </View>
@@ -355,12 +332,13 @@ const CarProfile = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#020617',
+    backgroundColor: COLORS.dark,
   },
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   backRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -369,89 +347,78 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 20,
   },
-  headerAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 15,
-    marginRight: 4,
-  },
-  headerAvatarPlaceholder: {
-    width: 50,
-    height: 50,
-    borderRadius: 15,
-    backgroundColor: 'rgba(56,189,248,0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 4,
-  },
-  headerAvatarInitial: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#38bdf8',
-  },
-  headerInfo: {
-    flex: 1,
-  },
+
+  headerInfo: { flex: 1 },
+
   subtitle: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: COLORS.muted,
     marginTop: 2,
   },
+
   userContainer: {
     paddingHorizontal: 16,
     paddingTop: 20,
     paddingBottom: 24,
-    backgroundColor: '#020617',
+    backgroundColor: COLORS.dark,
   },
+
   profileHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
   },
-  avatarWrapper: {
-    marginRight: 24,
-  },
+
+  avatarWrapper: { marginRight: 24 },
+
   avatar: {
     width: 90,
     height: 90,
     borderRadius: 45,
   },
+
   avatarPlaceholder: {
     width: 90,
     height: 90,
     borderRadius: 45,
-    backgroundColor: 'rgba(56,189,248,0.25)',
+    backgroundColor: 'rgba(14,165,233,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(14,165,233,0.22)',
   },
+
   avatarInitial: {
     fontSize: 36,
     fontWeight: '700',
-    color: '#38bdf8',
+    color: COLORS.primary2,
   },
+
   statsRow: {
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'space-around',
   },
-  statItem: {
-    alignItems: 'center',
-  },
+
+  statItem: { alignItems: 'center' },
+
   statNumber: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#e5e7eb',
+    color: COLORS.text,
     marginBottom: 4,
   },
+
   statLabel: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: COLORS.muted,
   },
 
   actionsRow: {
     flexDirection: 'row',
     gap: 10,
   },
+
   actionButton: {
     flex: 1,
     flexDirection: 'row',
@@ -461,82 +428,68 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 8,
   },
+
   followButton: {
-    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+    backgroundColor: 'rgba(14,165,233,0.14)',
     borderWidth: 1,
-    borderColor: '#38bdf8',
+    borderColor: COLORS.primary2,
   },
+
   followingButton: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    borderColor: '#ef4444',
+    backgroundColor: 'rgba(244,63,94,0.14)',
+    borderColor: COLORS.rose,
   },
+
   messageButton: {
-    backgroundColor: '#38bdf8',
+    backgroundColor: COLORS.primary2,
   },
+
   actionButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#e5e7eb',
+    color: COLORS.text,
   },
+
   ownCarBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    backgroundColor: 'rgba(16,185,129,0.14)',
     paddingVertical: 10,
     borderRadius: 8,
     gap: 6,
     marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.22)',
   },
+
   ownCarText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#10b981',
+    color: COLORS.emerald,
   },
+
   profileInfo: {
     marginTop: 0,
     marginBottom: 10,
   },
-  bioUsername: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#e5e7eb',
-    marginBottom: 6,
-  },
+
   bioSection: {
     width: '100%',
     marginBottom: 12,
   },
+
   bioText: {
     fontSize: 14,
-    color: '#cbd5e1',
+    color: 'rgba(226,232,240,0.88)',
     lineHeight: 20,
   },
-  carInfoCard: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.2)',
-  },
-  carInfoContent: {
-    alignItems: 'center',
-  },
-  plateWrapper: {
-    marginBottom: 12,
-  },
-  carModelLarge: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#e5e7eb',
-    textAlign: 'center',
-  },
+
   postsSection: {
     marginTop: 20,
     paddingBottom: 40,
   },
+
   postsSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -544,71 +497,76 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     gap: 8,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#e5e7eb',
-  },
+
   postsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    itemAlign: 'center',
     justifyContent: 'center',
     gap: 1,
   },
+
   postGridItem: {
     width: (SCREEN_WIDTH - 3) / 3.3,
     height: (SCREEN_WIDTH - 4) / 3,
     position: 'relative',
   },
+
   postGridImage: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#1e293b',
+    backgroundColor: COLORS.dark2,
   },
+
   postGridPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#1e293b',
+    backgroundColor: COLORS.dark2,
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   postMultipleIndicator: {
     position: 'absolute',
     top: 8,
     right: 8,
   },
+
   emptyPosts: {
     alignItems: 'center',
     paddingVertical: 40,
   },
+
   emptyPostsText: {
     fontSize: 14,
-    color: '#9ca3af',
+    color: COLORS.muted,
     textAlign: 'center',
     marginTop: 12,
   },
+
   loadingText: {
     fontSize: 14,
-    color: '#9ca3af',
+    color: COLORS.muted,
     marginTop: 12,
   },
+
   emptyText: {
     fontSize: 16,
-    color: '#9ca3af',
+    color: COLORS.muted,
     marginTop: 12,
     marginBottom: 20,
   },
+
   backButton: {
-    backgroundColor: '#38bdf8',
+    backgroundColor: COLORS.primary2,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
   },
+
   backButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0f172a',
+    color: COLORS.dark,
   },
 });
 

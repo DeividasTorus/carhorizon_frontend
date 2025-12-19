@@ -1,0 +1,22 @@
+{
+  "testEnvironment": "node",
+  "preset": "react-native",
+  "setupFilesAfterEnv": ["<rootDir>/jest.setup.js"],
+  "testMatch": ["**/__tests__/**/*.test.js"],
+  "moduleNameMapper": {
+    "^@/(.*)$": "<rootDir>/$1"
+  },
+  "transform": {
+    "^.+\\.(js|jsx)$": "babel-jest"
+  },
+  "transformIgnorePatterns": [
+    "node_modules/(?!(expo|@react-native|react-native|@react-native-async-storage|expo-notifications|expo-device|expo-constants)/)",
+    "\\.tsx?$"
+  ],
+  "moduleFileExtensions": ["js", "jsx", "json"],
+  "collectCoverageFrom": [
+    "context/**/*.js",
+    "utils/**/*.js",
+    "!**/*.test.js"
+  ]
+}

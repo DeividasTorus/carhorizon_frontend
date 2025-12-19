@@ -1,20 +1,16 @@
 {
   "expo": {
-    "name": "CarHorizon Frontend",
-    "slug": "carhorizon_frontend",
+    "name": "CarHorizon",
+    "slug": "carhorizon",
     "version": "1.0.0",
-    "sdkVersion": "54.0.0",
-    "platforms": [
-      "ios",
-      "android",
-      "web"
-    ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "scheme": "carhorizon",
+    "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#020617"
     },
     "updates": {
       "fallbackToCacheTimeout": 0
@@ -23,16 +19,34 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.carhorizon.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      }
+        "backgroundColor": "#020617"
+      },
+      "package": "com.carhorizon.app",
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "POST_NOTIFICATIONS"
+      ]
     },
     "plugins": [
-      "expo-router"
-    ]
+      "expo-router",
+      "expo-notifications"
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "2aad41c7-aff9-4124-89b9-8522e939210b"
+      }
+    }
   }
 }

@@ -11,22 +11,30 @@
     "eject": "expo prebuild",
     "doctor": "expo doctor",
     "upgrade": "expo upgrade",
+    "test": "jest",
+    "test:push": "jest __tests__/pushNotifications.test.js --verbose",
+    "test:coverage": "jest --coverage",
     "clean-install": "powershell -Command \"Remove-Item -Recurse -Force node_modules; Remove-Item -Force package-lock.json; npm cache clean --force; npm install\""
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "^1.23.1",
     "babel-preset-expo": "~54.0.0",
+    "dayjs": "^1.11.19",
     "expo": "^54.0.0",
     "expo-constants": "~18.0.10",
+    "expo-crypto": "~15.0.8",
+    "expo-device": "^8.0.10",
     "expo-file-system": "~19.0.19",
     "expo-image-manipulator": "~14.0.8",
     "expo-image-picker": "~17.0.8",
     "expo-linear-gradient": "~15.0.7",
     "expo-linking": "~8.0.9",
+    "expo-notifications": "^0.32.15",
     "expo-router": "~6.0.15",
     "expo-splash-screen": "~31.0.11",
     "expo-status-bar": "^3.0.8",
+    "expo-web-browser": "~15.0.10",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
@@ -37,6 +45,9 @@
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
-    "cross-env": "^7.0.3"
+    "babel-jest": "^29.7.0",
+    "cross-env": "^7.0.3",
+    "jest": "^29.7.0",
+    "react-test-renderer": "^19.1.0"
   }
 }

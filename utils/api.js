@@ -1,4 +1,6 @@
-const BASE_URL = 'http://192.168.1.165:4000/api'; // tas pats, kur naudoji backend'ui
+import { API_URL } from '../config/env';
+
+const BASE_URL = `${API_URL}/api`;
 
 const baseHeaders = {
   'Content-Type': 'application/json',

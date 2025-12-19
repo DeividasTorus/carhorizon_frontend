@@ -13,7 +13,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PostCard from '../components/PostCard';
 import { useAppContext } from '../context/AppContext';
-import { BASE_URL } from '../utils/api';
+import { API_URL } from '../config/env';
+import ScreenLoader from '../components/ScreenLoader';
+import COLORS from '../config/colors';
 
 const PostDetail = () => {
   const insets = useSafeAreaInsets();
@@ -26,10 +28,21 @@ const PostDetail = () => {
 
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [screenLoading, setScreenLoading] = useState(true);
   const flatListRef = useRef(null);
-  const [initialScrollDone, setInitialScrollDone] = useState(false);
+  const targetPostId = useRef(postId);
+
+  // Reset state when postId changes
+  useEffect(() => {
+    targetPostId.current = postId;
+    setScreenLoading(true);
+    setLoading(true);
+    setPosts([]);
+  }, [postId]);
 
   useEffect(() => {
+    let isCancelled = false;
+
     const loadPosts = async () => {
       setLoading(true);
 
@@ -60,11 +73,31 @@ const PostDetail = () => {
         return dateB - dateA;
       });
 
-      setPosts(sortedPosts);
-      setLoading(false);
+      // Reorder posts so target post is first
+      const targetIndex = sortedPosts.findIndex(p => p.id === targetPostId.current);
+      let reorderedPosts = sortedPosts;
+
+      if (targetIndex !== -1) {
+        const targetPost = sortedPosts[targetIndex];
+        const beforeTarget = sortedPosts.slice(0, targetIndex);
+        const afterTarget = sortedPosts.slice(targetIndex + 1);
+        // Put target post first, then after, then before
+        reorderedPosts = [targetPost, ...afterTarget, ...beforeTarget];
+      }
+
+      setPosts(reorderedPosts);
+
+      if (!isCancelled) {
+        setLoading(false);
+        setScreenLoading(false);
+      }
     };
 
     loadPosts();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [postId, carId]);
 
   // Update posts when feeds change (after edit)
@@ -80,23 +113,6 @@ const PostDetail = () => {
       })
     );
   }, [followingFeed, newsPosts]);
-
-  // Scroll to selected post after posts are loaded
-  useEffect(() => {
-    if (posts.length > 0 && !initialScrollDone) {
-      const postIndex = posts.findIndex(p => p.id === postId);
-      if (postIndex !== -1 && flatListRef.current) {
-        setTimeout(() => {
-          flatListRef.current?.scrollToIndex({
-            index: postIndex,
-            animated: false,
-            viewPosition: 0,
-          });
-          setInitialScrollDone(true);
-        }, 100);
-      }
-    }
-  }, [posts, postId, initialScrollDone]);
 
   const handlePostDeleted = (deletedPostId) => {
     // Remove post from list
@@ -120,19 +136,23 @@ const PostDetail = () => {
     );
   };
 
+  if (screenLoading) {
+    return <ScreenLoader />;
+  }
+
   if (loading) {
     return (
       <View style={styles.container}>
         <StatusBar style="light" />
         <View style={[styles.header, { paddingTop: insets.top }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#e5e7eb" />
+            <Ionicons name="arrow-back" size={24} color={COLORS.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Įrašas</Text>
+          <Text style={styles.headerTitleSingle}>Įrašas</Text>
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#38bdf8" />
+          <ActivityIndicator size="large" color={COLORS.cyan} />
         </View>
       </View>
     );
@@ -147,10 +167,10 @@ const PostDetail = () => {
         <View style={[styles.header, { paddingTop: insets.top }]}>
           <View style={styles.headerTitleGroup}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color="#e5e7eb" />
+              <Ionicons name="arrow-back" size={24} color={COLORS.text} />
             </TouchableOpacity>
             <View style={styles.mainIconWrapper}>
-              <Ionicons name="document-text-outline" size={26} color="#38bdf8" />
+              <Ionicons name="document-text-outline" size={26} color={COLORS.primary} />
             </View>
             <Text style={styles.headerTitle}>Įrašai</Text>
           </View>
@@ -158,7 +178,7 @@ const PostDetail = () => {
         </View>
 
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={64} color="#475569" />
+          <Ionicons name="alert-circle-outline" size={64} color={COLORS.muted} />
           <Text style={styles.errorText}>Įrašų nerasta</Text>
         </View>
       </View>
@@ -180,10 +200,10 @@ const PostDetail = () => {
       <View style={[styles.header]}>
         <View style={styles.headerTitleGroup}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#e5e7eb" />
+            <Ionicons name="arrow-back" size={26} color={COLORS.text} />
           </TouchableOpacity>
           <View style={styles.mainIconWrapper}>
-            <Ionicons name="document-text-outline" size={26} color="#38bdf8" />
+            <Ionicons name="document-text-outline" size={26} color={COLORS.primary} />
           </View>
           <Text style={styles.headerTitle}>
             Įrašai
@@ -192,24 +212,22 @@ const PostDetail = () => {
         <View style={{ width: 24 }} />
       </View>
 
-      {/* Posts List */}
-      <FlatList
-        ref={flatListRef}
-        data={posts}
-        renderItem={renderPost}
-        keyExtractor={(item) => String(item.id)}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContent}
-        onScrollToIndexFailed={(info) => {
-          setTimeout(() => {
-            flatListRef.current?.scrollToIndex({
-              index: info.index,
-              animated: false,
-              viewPosition: 0,
-            });
-          }, 100);
-        }}
-      />
+      {/* Show loading or posts */}
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.cyan} />
+        </View>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={posts}
+          renderItem={renderPost}
+          keyExtractor={(item) => String(item.id)}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContent}
+          windowSize={10}
+        />
+      )}
     </View>
   );
 };
@@ -217,7 +235,8 @@ const PostDetail = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 5
+    paddingHorizontal: 5,
+    backgroundColor: COLORS.dark, // buvo #020617
   },
   header: {
     flexDirection: 'row',
@@ -233,14 +252,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   backButton: {
-    marginRight: 12,
+    marginRight: 7,
     padding: 4,
+    marginLeft: -12,
   },
   mainIconWrapper: {
     width: 44,
     height: 44,
     borderRadius: 999,
-    backgroundColor: 'rgba(56,189,248,0.18)',
+    backgroundColor: 'rgba(56,189,248,0.18)', // palikta kaip buvo (jei turi COLORS su alpha – gali pakeist vėliau)
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -248,7 +268,12 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#e5e7eb',
+    color: COLORS.text, // buvo #e5e7eb
+  },
+  headerTitleSingle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: COLORS.text, // buvo #e5e7eb
   },
   loadingContainer: {
     flex: 1,
@@ -264,7 +289,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#e5e7eb',
+    color: COLORS.text, // buvo #e5e7eb
     marginTop: 16,
   },
   listContent: {

@@ -7,9 +7,10 @@ import { AppProvider } from '../context/AppContext';
 import Navbar from '../components/Navbar';
 import * as SplashScreen from 'expo-splash-screen';
 import { Asset } from 'expo-asset';
+import COLORS from '../config/colors';
 
 // labai svarbu: kviesti tai viršuje, ne viduje komponento
-SplashScreen.preventAutoHideAsync().catch(() => { });
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const Layout = () => {
   const pathname = usePathname();
@@ -25,9 +26,7 @@ const Layout = () => {
     const prepare = async () => {
       try {
         // 1) Preload’intam tavo PNG
-        await Asset.loadAsync([
-          require('../assets/LTPlates.png'),
-        ]);
+        await Asset.loadAsync([require('../assets/LTPlates.png')]);
 
         // čia dar galėtum preload’inti kitus assetus ar daryti init logiką
       } catch (e) {
@@ -35,7 +34,7 @@ const Layout = () => {
       } finally {
         setAppIsReady(true);
         // 2) Kai viskas pasiruošę – slepiam splash
-        SplashScreen.hideAsync().catch(() => { });
+        SplashScreen.hideAsync().catch(() => {});
       }
     };
 
@@ -60,9 +59,8 @@ const Layout = () => {
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#020617' },
+  safe: { flex: 1, backgroundColor: COLORS.dark },
   container: { flex: 1 },
 });
 
 export default Layout;
-

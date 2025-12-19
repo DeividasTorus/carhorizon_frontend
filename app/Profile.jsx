@@ -26,7 +26,8 @@ import { useRouter } from 'expo-router';
 import LicensePlate from '../components/LicensePlate';
 import ScreenLoader from '../components/ScreenLoader';
 import CachedAvatar from '../components/CachedAvatar';
-import { useSafeAreaInsets } from 'react-native-safe-area-context'; // Importuojame insets
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { API_URL } from '../config/env';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SNAP_INTERVAL = SCREEN_WIDTH;
@@ -56,7 +57,7 @@ const Profile = () => {
   const [listModalType, setListModalType] = useState('followers');
   const [listModalData, setListModalData] = useState([]);
   const [listModalLoading, setListModalLoading] = useState(false);
-  
+
   const [carPosts, setCarPosts] = useState([]);
   const [postsLoading, setPostsLoading] = useState(false);
 
@@ -136,7 +137,7 @@ const Profile = () => {
 
   // Avatar URL for selected car
   const selectedCarAvatarUrl = selectedCar?.avatar_url
-    ? `http://192.168.1.165:4000${selectedCar.avatar_url}`
+    ? `${API_URL}${selectedCar.avatar_url}`
     : null;
 
   const selectedCarInitials = selectedCar?.plate?.[0]?.toUpperCase() || '?';
@@ -196,6 +197,7 @@ const Profile = () => {
     return (
       <View style={styles.carouselItem}>
         <LinearGradient
+          // GRADIENTAS PALIKTAS KAIP BUVO
           colors={['#0f172a', '#020617']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -234,6 +236,7 @@ const Profile = () => {
                         : 'checkmark-circle-outline'
                     }
                     size={28}
+                    // IKONŲ SPALVOS PALIKTOS KAIP BUVO
                     color={isActive ? '#38bdf8' : '#6b7280'}
                   />
                 )}
@@ -276,8 +279,6 @@ const Profile = () => {
     );
   };
 
-
-
   // Pasirinkto automobilio statistika
   const selectedCarStats = selectedCar ? carStats[selectedCar.id] : null;
   const followersCount = selectedCarStats?.followers ?? 0;
@@ -290,19 +291,12 @@ const Profile = () => {
       setCarPosts([]);
       return;
     }
-    
+
     console.log('📸 Loading posts for car:', selectedCar.id);
     setPostsLoading(true);
     try {
       const posts = await fetchCarPosts(selectedCar.id);
       console.log('📸 Car posts loaded:', posts.length);
-      if (posts.length > 0) {
-        console.log('📸 First post likes:', {
-          id: posts[0].id,
-          likes: posts[0].likes,
-          isLikedByMe: posts[0].isLikedByMe
-        });
-      }
       setCarPosts(posts);
     } catch (e) {
       console.log('fetchCarPosts error', e);
@@ -325,18 +319,6 @@ const Profile = () => {
       }
     }, [selectedCar?.id, loadPosts])
   );
-
-  // DEBUG
-  useEffect(() => {
-    console.log('📱 Profile re-render:', {
-      selectedCar: selectedCar?.id,
-      carStats,
-      selectedCarStats,
-      followersCount,
-      followingCount,
-      postsCount,
-    });
-  }, [selectedCar, carStats]);
 
   const handleOpenList = async (type) => {
     if (!selectedCar) return;
@@ -367,12 +349,9 @@ const Profile = () => {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-      >
-        {/* NAUJAS TOP BAR / HEADERIS */}
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* TOP BAR / HEADERIS */}
         <View style={styles.newHeaderContainer}>
-          {/* KAIRĖ: Ikona ir Antraštė */}
           <View style={styles.headerTitleGroup}>
             <View style={styles.headerIconWrapper}>
               <Ionicons name="person-circle-outline" size={26} color="#38bdf8" />
@@ -380,12 +359,10 @@ const Profile = () => {
             <Text style={styles.mainTitleSmall}>Mano Profilis</Text>
           </View>
 
-          {/* DEŠINĖ: Meniu */}
           <TouchableOpacity onPress={() => router.push('/UserSettings')}>
             <Ionicons name="menu-outline" size={32} color="#e5e7eb" />
           </TouchableOpacity>
         </View>
-
 
         {/* SELECTED CAR HEADER */}
         {selectedCar && (
@@ -459,9 +436,7 @@ const Profile = () => {
             offset: SNAP_INTERVAL * index,
             index,
           })}
-          contentContainerStyle={{
-            paddingHorizontal: 0,
-          }}
+          contentContainerStyle={{ paddingHorizontal: 0 }}
           style={{ marginTop: 16 }}
         />
 
@@ -495,73 +470,71 @@ const Profile = () => {
         {/* Posts Grid */}
         {selectedCar && (
           <View style={styles.postsSection}>
-                <View style={styles.postsSectionHeader}>
-                  <Ionicons name="grid-outline" size={24} color="#38bdf8" />
-                </View>
-                
-                {postsLoading ? (
-                  <View style={styles.postsLoading}>
-                    <ActivityIndicator size="small" color="#38bdf8" />
-                  </View>
-                ) : carPosts.length === 0 ? (
-                  <View style={styles.postsEmpty}>
-                    <Ionicons name="images-outline" size={48} color="#475569" />
-                    <Text style={styles.postsEmptyText}>Nėra įrašų</Text>
-                  </View>
-                ) : (
-                  <View style={styles.postsGrid}>
-                    {carPosts.map((post) => {
-                      if (!post || !post.id) return null;
-                      
-                      const images = Array.isArray(post.images) ? post.images : [];
-                      const firstImage = images[0];
-                      
-                      // Handle both string and object image formats
-                      let imageUrl = null;
-                      if (firstImage) {
-                        const imagePath = typeof firstImage === 'string' 
-                          ? firstImage 
-                          : firstImage.image_url;
-                        
-                        if (imagePath) {
-                          imageUrl = imagePath.startsWith('http') 
-                            ? imagePath 
-                            : `http://192.168.1.165:4000${imagePath}`;
-                        }
-                      }
-                      
-                      return (
-                        <TouchableOpacity
-                          key={post.id}
-                          style={styles.postGridItem}
-                          onPress={() => router.push({ 
-                            pathname: '/PostDetail', 
-                            params: { postId: post.id, carId: activeCarId } 
-                          })}
-                        >
-                          {imageUrl ? (
-                            <Image 
-                              source={{ uri: imageUrl }} 
-                              style={styles.postGridImage}
-                              resizeMode="cover"
-                            />
-                          ) : (
-                            <View style={styles.postGridPlaceholder}>
-                              <Ionicons name="image-outline" size={32} color="#475569" />
-                            </View>
-                          )}
-                          
-                          {/* Overlay icons */}
-                          {images.length > 1 && (
-                            <View style={styles.postMultipleIndicator}>
-                              <Ionicons name="copy-outline" size={16} color="#fff" />
-                            </View>
-                          )}
-                        </TouchableOpacity>
-                      );
-                    }).filter(Boolean)}
-                  </View>
-                )}
+            <View style={styles.postsSectionHeader}>
+              <Ionicons name="grid-outline" size={24} color="#38bdf8" />
+            </View>
+
+            {postsLoading ? (
+              <View style={styles.postsLoading}>
+                <ActivityIndicator size="small" color="#38bdf8" />
+              </View>
+            ) : carPosts.length === 0 ? (
+              <View style={styles.postsEmpty}>
+                <Ionicons name="images-outline" size={48} color="#475569" />
+                <Text style={styles.postsEmptyText}>Nėra įrašų</Text>
+              </View>
+            ) : (
+              <View style={styles.postsGrid}>
+                {carPosts.map((post) => {
+                  if (!post || !post.id) return null;
+
+                  const images = Array.isArray(post.images) ? post.images : [];
+                  const firstImage = images[0];
+
+                  let imageUrl = null;
+                  if (firstImage) {
+                    const imagePath = typeof firstImage === 'string'
+                      ? firstImage
+                      : firstImage.image_url;
+
+                    if (imagePath) {
+                      imageUrl = imagePath.startsWith('http')
+                        ? imagePath
+                        : `${API_URL}${imagePath}`;
+                    }
+                  }
+
+                  return (
+                    <TouchableOpacity
+                      key={post.id}
+                      style={styles.postGridItem}
+                      onPress={() => router.push({
+                        pathname: '/PostDetail',
+                        params: { postId: post.id, carId: activeCarId }
+                      })}
+                    >
+                      {imageUrl ? (
+                        <Image
+                          source={{ uri: imageUrl }}
+                          style={styles.postGridImage}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={styles.postGridPlaceholder}>
+                          <Ionicons name="image-outline" size={32} color="#475569" />
+                        </View>
+                      )}
+
+                      {images.length > 1 && (
+                        <View style={styles.postMultipleIndicator}>
+                          <Ionicons name="copy-outline" size={16} color="#fff" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                }).filter(Boolean)}
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -623,8 +596,6 @@ const Profile = () => {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
-
-
     </View>
   );
 };
@@ -637,7 +608,6 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
 
-  // NAUJI HEADERIO STILIAI (pritaikyti iš News/Inbox)
   newHeaderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -663,16 +633,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#e5e7eb',
   },
-  // SENAS topBar stilius pašalintas/pakeistas
 
   userContainer: {
-    paddingHorizontal: 10, // Atskyriau nuo scrollContent horizontalus paddingas
+    paddingHorizontal: 10,
   },
   profileHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 15,
-    gap: 20,
+    gap: 2,
   },
   statsRow: {
     flex: 1,
@@ -727,11 +696,6 @@ const styles = StyleSheet.create({
     borderBottomColor: '#1f2937',
     borderBottomWidth: 1,
   },
-  listItemPlate: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#e5e7eb',
-  },
   listItemModel: {
     fontSize: 13,
     color: '#9ca3af',
@@ -742,6 +706,7 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     paddingVertical: 12,
   },
+
   profileInfo: {
     marginTop: 10,
     marginBottom: 10,
@@ -749,12 +714,6 @@ const styles = StyleSheet.create({
   bioSection: {
     width: '100%',
     marginBottom: 12,
-  },
-  bioUsername: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#e5e7eb',
-    marginBottom: 6,
   },
   bioText: {
     fontSize: 14,
@@ -777,10 +736,9 @@ const styles = StyleSheet.create({
   },
 
   sectionContainer: {
-    paddingHorizontal: 10, // Pridėtas horizontalus padding
+    paddingHorizontal: 10,
   },
 
-  // CAROUSEL + CARD (nepakeisti esminiai stiliai)
   carouselItem: {
     width: SCREEN_WIDTH,
   },
@@ -820,8 +778,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: '#22c55e',
   },
+  // TEKSTAS ŠVIESUS (čia buvo tamsus)
   heroBadgeText: {
-    color: '#022c22',
+    color: '#f9fafb',
     fontSize: 11,
     fontWeight: '700',
   },
@@ -855,9 +814,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  carInfoBlock: {
-   
-  },
+  carInfoBlock: {},
   carModel: {
     fontSize: 16,
     color: '#e5e7eb',
@@ -866,7 +823,6 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
 
-  // Add car card
   addCarCard: {
     width: CARD_WIDTH,
     justifyContent: 'center',
@@ -891,7 +847,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
 
-  // Dots
   dotsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -911,7 +866,6 @@ const styles = StyleSheet.create({
     height: 10,
   },
 
-  // Empty garage
   emptyGarageBox: {
     padding: 16,
     borderRadius: 16,
@@ -930,7 +884,6 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
   },
 
-  // Posts Grid
   postsSection: {
     marginTop: 20,
     paddingHorizontal: 8,
@@ -943,11 +896,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#1e293b',
     paddingBottom: 10,
-  },
-  postsSectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#e5e7eb',
   },
   postsLoading: {
     paddingVertical: 40,
@@ -965,7 +913,7 @@ const styles = StyleSheet.create({
   postsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    itemAlign: 'center',  
+    itemAlign: 'center',
     justifyContent: 'center',
     gap: 1
   },

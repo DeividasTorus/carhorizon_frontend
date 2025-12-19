@@ -1,4 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+dayjs.extend(relativeTime);
+import LicensePlate from './LicensePlate';
 import {
   View,
   Text,
@@ -13,6 +17,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAppContext } from '../context/AppContext';
+import { API_URL } from '../config/env';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const MAX_BODY_PREVIEW_LENGTH = 140;
@@ -20,7 +25,7 @@ const MAX_BODY_PREVIEW_LENGTH = 140;
 const PostCard = ({ post, isMenuVisible: externalMenuVisible, onToggleMenu, onCloseMenu, onPostDeleted, onLikeChange }) => {
   const router = useRouter();
   const { likePost, deletePost, editPost, activeCarId } = useAppContext();
-  
+
   const [activeIndex, setActiveIndex] = useState(0);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLiked, setIsLiked] = useState(post.isLikedByMe || false);
@@ -46,11 +51,20 @@ const PostCard = ({ post, isMenuVisible: externalMenuVisible, onToggleMenu, onCl
   }, [post.id, post.likes, post.isLikedByMe]); // Include likes to catch WebSocket updates
 
   // Handle author - show car info, never user email (confidential)
-  const authorName = typeof post.author === 'string' 
-    ? post.author 
-    : post.car?.plate || 'Automobilis';
-  
-  const timeAgo = post.date || '0 Minutes';
+  const authorName = typeof post.author === 'string'
+    ? post.author
+    : post.car?.model || 'Automobilis';
+
+  // Naudoti date, createdAt, created_at arba timestamp lauką
+  const postDateRaw = post.date || post.createdAt || post.created_at || post.timestamp;
+  console.log('POST DATE:', postDateRaw);
+  let timeAgo = '0 min.';
+  if (postDateRaw) {
+    const dateObj = typeof postDateRaw === 'string' || typeof postDateRaw === 'number' ? dayjs(postDateRaw) : null;
+    if (dateObj && dateObj.isValid()) {
+      timeAgo = dayjs(dateObj).fromNow();
+    }
+  }
   const likes = post.likes || 0;
   const comments = post.comments || 0;
   const shares = post.shares || 0;
@@ -59,17 +73,15 @@ const PostCard = ({ post, isMenuVisible: externalMenuVisible, onToggleMenu, onCl
   const isFollowing = post.isFollowing || false;
 
   // Handle images - can be imageUrls array or images array with image_url
-  const BASE_URL = 'http://192.168.1.165:4000'; // Should match your backend
-  
   // Car avatar (cars now have avatars, not users)
-  const carAvatarUrl = post.car?.avatar_url 
-    ? `${BASE_URL}${post.car.avatar_url}`
+  const carAvatarUrl = post.car?.avatar_url
+    ? `${API_URL}${post.car.avatar_url}`
     : null;
-  const imageUrls = post.imageUrls || 
+  const imageUrls = post.imageUrls ||
     (post.images ? post.images.map(img => {
       const url = typeof img === 'string' ? img : img.image_url;
       // Add base URL if it's a relative path
-      return url && url.startsWith('/') ? `${BASE_URL}${url}` : url;
+      return url && url.startsWith('/') ? `${API_URL}${url}` : url;
     }) : []);
   const hasImages = imageUrls.length > 0;
 
@@ -119,23 +131,23 @@ const PostCard = ({ post, isMenuVisible: externalMenuVisible, onToggleMenu, onCl
 
   const handleLike = async () => {
     if (isLiking) return;
-    
+
     console.log('💙 PostCard handleLike called for post:', post.id);
     setIsLiking(true);
     const previousLiked = isLiked;
     const previousCount = likesCount;
-    
+
     // Optimistic update
     const newLikedState = !isLiked;
     const newLikesCount = isLiked ? likesCount - 1 : likesCount + 1;
     setIsLiked(newLikedState);
     setLikesCount(newLikesCount);
     console.log('💙 Optimistic update:', { newLikedState, newLikesCount });
-    
+
     try {
       const result = await likePost(post.id);
       console.log('💙 Like result from context:', result);
-      
+
       // Update liked status from backend, but keep optimistic likesCount
       // Backend sometimes returns incorrect likesCount (only current user's like count)
       if (result && typeof result.liked !== 'undefined') {
@@ -143,7 +155,7 @@ const PostCard = ({ post, isMenuVisible: externalMenuVisible, onToggleMenu, onCl
         setIsLiked(result.liked);
         // Don't update likesCount from backend - keep optimistic update
       }
-      
+
       // Call onLikeChange callback if provided (for parent components to update their state)
       if (onLikeChange) {
         console.log('💙 Calling onLikeChange callback');
@@ -176,7 +188,7 @@ const PostCard = ({ post, isMenuVisible: externalMenuVisible, onToggleMenu, onCl
             handleCloseMenuInternal();
             try {
               await deletePost(post.id);
-              
+
               // Call callback if provided (for PostDetail to navigate back)
               if (onPostDeleted) {
                 onPostDeleted();
@@ -306,18 +318,34 @@ const PostCard = ({ post, isMenuVisible: externalMenuVisible, onToggleMenu, onCl
         <View style={styles.cardHeader}>
           <View style={styles.authorRow}>
             {carAvatarUrl ? (
-              <Image source={{ uri: carAvatarUrl }} style={styles.avatar} />
+              <TouchableOpacity
+                onPress={() => {
+                  if (post.car && post.car.id) {
+                    router.push({ pathname: '/CarProfile', params: { carId: post.car.id } });
+                  }
+                }}
+              >
+                <Image source={{ uri: carAvatarUrl }} style={styles.avatar} />
+              </TouchableOpacity>
             ) : (
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>{authorName[0]}</Text>
               </View>
             )}
             <View>
-              <Text style={styles.authorName}>{authorName}</Text>
               {post.car && (
-                <Text style={styles.carInfo}>
-                  {post.car.plate} • {post.car.model}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (post.car && post.car.id) {
+                        router.push({ pathname: '/CarProfile', params: { carId: post.car.id } });
+                      }
+                    }}
+                  >
+                    <LicensePlate plate={post.car.plate} width={100} height={25} borderRadius={2} style={{ marginRight: 8, }} textStyle={{ fontSize: 14, marginLeft: 19, letterSpacing: 1, }} />
+                  </TouchableOpacity>
+                  
+                </View>
               )}
               <View style={styles.infoRow}>
                 <Ionicons
@@ -421,7 +449,7 @@ const PostCard = ({ post, isMenuVisible: externalMenuVisible, onToggleMenu, onCl
       {/* ACTIONS */}
       <View style={styles.actionWrapper}>
         <View style={styles.footer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.actionButton}
             onPress={() => {
               console.log('💗 Like button pressed for post:', post.id, 'isLiking:', isLiking);
@@ -429,22 +457,22 @@ const PostCard = ({ post, isMenuVisible: externalMenuVisible, onToggleMenu, onCl
             }}
             disabled={isLiking}
           >
-            <Ionicons 
-              name={isLiked ? "heart" : "heart-outline"} 
-              size={26} 
-              color={isLiked ? "#ef4444" : "#fff"} 
+            <Ionicons
+              name={isLiked ? "heart" : "heart-outline"}
+              size={26}
+              color={isLiked ? "#ef4444" : "#fff"}
             />
             <Text style={styles.actionText}>{likesCount}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => router.push({ 
-              pathname: '/PostComments', 
-              params: { 
+            onPress={() => router.push({
+              pathname: '/PostComments',
+              params: {
                 postId: post.id,
-                postAuthorCarId: post.car_id || post.car?.id 
-              } 
+                postAuthorCarId: post.car_id || post.car?.id
+              }
             })}
           >
             <Ionicons name="chatbubble-outline" size={26} color="#fff" />
@@ -503,8 +531,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatar: {
-    width: 40,
-    height: 40,
+    width: 45,
+    height: 45,
     borderRadius: 20,
     backgroundColor: '#3b82f6',
     justifyContent: 'center',

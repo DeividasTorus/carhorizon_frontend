@@ -15,10 +15,47 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { useAppContext } from '../context/AppContext';
-import { BASE_URL } from '../utils/api';
+import { API_URL } from '../config/env';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import LTPlates from '../assets/LTPlates.png';
+
+const COLORS = {
+  bg: '#020617',
+  text: '#e5e7eb',
+  textMuted: '#9ca3af',
+  textHint: '#6b7280',
+  blue: '#38bdf8',
+  blue2: '#0ea5e9',
+  orange: '#f97316',
+  green: '#22c55e',
+  green2: '#4ade80',
+  redSoftText: '#fecaca',
+  redSoftText2: '#fca5a5',
+
+  slate600: '#64748b',
+
+  toggleBg: 'rgba(15,23,42,0.9)',
+  toggleBorder: 'rgba(30,64,175,0.6)',
+
+  headerIconBg: 'rgba(56,189,248,0.18)',
+
+  tagBg: 'rgba(22,163,74,0.14)',
+
+  emptyBorder: 'rgba(148,163,184,0.25)',
+  emptyBg: 'rgba(15,23,42,0.85)',
+  emptyGrad1: 'rgba(56,189,248,0.15)',
+  emptyGrad2: 'rgba(37,99,235,0.1)',
+
+  resultsBg: 'rgba(15,23,42,0.9)',
+  resultsBorder: 'rgba(148,163,184,0.25)',
+  resultBorder: 'rgba(56,189,248,0.32)',
+  avatarPlaceholderBg: 'rgba(56,189,248,0.25)',
+
+  noResBg: 'rgba(248,250,252,0.02)',
+  noResBorder: 'rgba(248,113,113,0.28)',
+  noResIconBg: 'rgba(248,113,113,0.13)',
+};
 
 const SearchCar = () => {
   const { searchCarByPlate, openChat, inboxMessages, fetchChatMessages } =
@@ -131,7 +168,6 @@ const SearchCar = () => {
 
   const handleSelectResult = async (car) => {
     try {
-      // add to recents
       try {
         await pushRecent(car);
       } catch (e) {
@@ -141,7 +177,6 @@ const SearchCar = () => {
       setSearchPlate('');
       setSearchResults([]);
 
-      // Nukreipti į automobilio profilį
       router.push({
         pathname: `/CarProfile`,
         params: {
@@ -187,14 +222,13 @@ const SearchCar = () => {
         chatId = await openChat(car.id);
       }
 
-      // Get car avatar (cars have avatars, not users)
       const avatarPath = car?.avatar_url || null;
       let otherAvatarUrl = null;
       if (avatarPath) {
         if (/^https?:\/\//i.test(avatarPath)) {
           otherAvatarUrl = avatarPath;
         } else {
-          otherAvatarUrl = BASE_URL.replace(/\/api\/?$/, '') + avatarPath;
+          otherAvatarUrl = API_URL + avatarPath;
         }
       }
 
@@ -232,17 +266,14 @@ const SearchCar = () => {
     >
       <StatusBar style="light" />
 
-      <LinearGradient colors={['#020617', '#020617']} style={styles.background}>
-        {/* HEADER (vidinis, bet ne kortelė) */}
+      <LinearGradient colors={[COLORS.bg, COLORS.bg]} style={styles.background}>
+        {/* HEADER */}
         <View style={styles.header}>
           <View style={styles.headerIconWrapper}>
-            <Ionicons name="chatbubbles-outline" size={26} color="#38bdf8" />
+            <Ionicons name="chatbubbles-outline" size={26} color={COLORS.blue} />
           </View>
           <View style={styles.headerTextWrapper}>
             <Text style={styles.headerTitle}>Rask automobilio numerį</Text>
-            {/* <Text style={styles.headerSubtitle}>
-              Įvesk numerį ir iškart pradėk pokalbį su savininku.
-            </Text> */}
           </View>
         </View>
 
@@ -259,7 +290,7 @@ const SearchCar = () => {
             <Ionicons
               name="grid-outline"
               size={16}
-              color={!isVardinis ? '#020617' : '#9ca3af'}
+              color={!isVardinis ? COLORS.bg : COLORS.textMuted}
               style={styles.toggleIcon}
             />
             <Text style={[styles.toggleText, !isVardinis && styles.toggleTextActive]}>
@@ -278,7 +309,7 @@ const SearchCar = () => {
             <Ionicons
               name="star-outline"
               size={16}
-              color={isVardinis ? '#020617' : '#9ca3af'}
+              color={isVardinis ? COLORS.bg : COLORS.textMuted}
               style={styles.toggleIcon}
             />
             <Text style={[styles.toggleText, isVardinis && styles.toggleTextActive]}>
@@ -296,7 +327,7 @@ const SearchCar = () => {
             <Text style={styles.hint}>{isVardinis ? 'Pvz. MYC4R' : 'Pvz. ABC 123'}</Text>
           </View>
           <View style={styles.tagChip}>
-            <Ionicons name="shield-checkmark-outline" size={14} color="#22c55e" />
+            <Ionicons name="shield-checkmark-outline" size={14} color={COLORS.green} />
             <Text style={styles.tagChipText}>Privatu</Text>
           </View>
         </View>
@@ -308,7 +339,7 @@ const SearchCar = () => {
             value={searchPlate}
             onChangeText={onChangePlate}
             placeholder={isVardinis ? 'MYC4R' : 'ABC 123'}
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={COLORS.textMuted}
             autoCapitalize="characters"
             maxLength={isVardinis ? 6 : 7}
             style={styles.plateInput}
@@ -321,12 +352,12 @@ const SearchCar = () => {
           {showEmptyState && (
             <View style={styles.emptyStateContainer}>
               <LinearGradient
-                colors={['rgba(56,189,248,0.15)', 'rgba(37,99,235,0.1)']}
+                colors={[COLORS.emptyGrad1, COLORS.emptyGrad2]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.emptyIconCircle}
               >
-                <Ionicons name="car-sport-outline" size={42} color="#38bdf8" />
+                <Ionicons name="car-sport-outline" size={42} color={COLORS.blue} />
               </LinearGradient>
 
               <Text style={styles.emptyTitle}>Pradėk nuo numerio</Text>
@@ -356,36 +387,39 @@ const SearchCar = () => {
                 keyExtractor={(item) => String(item.id)}
                 scrollEnabled={false}
                 renderItem={({ item }) => {
-                  // Remove /api from BASE_URL for avatar paths
-                  const baseUrlWithoutApi = BASE_URL.replace(/\/api\/?$/, '');
-                  const carAvatarUrl = item.avatar_url ? `${baseUrlWithoutApi}${item.avatar_url}` : null;
+                  const carAvatarUrl = item.avatar_url ? `${API_URL}${item.avatar_url}` : null;
                   const carInitial = item.plate?.[0]?.toUpperCase() || 'C';
-                  
+
                   return (
-                  <TouchableOpacity
-                    style={styles.resultItem}
-                    onPress={() => handleSelectResult(item)}
-                  >
-                    {/* Car Avatar */}
-                    {carAvatarUrl ? (
-                      <Image source={{ uri: carAvatarUrl }} style={styles.resultAvatar} />
-                    ) : (
-                      <View style={styles.resultAvatarPlaceholder}>
-                        <Text style={styles.resultAvatarInitial}>{carInitial}</Text>
+                    <TouchableOpacity
+                      style={styles.resultItem}
+                      onPress={() => handleSelectResult(item)}
+                    >
+                      {carAvatarUrl ? (
+                        <Image source={{ uri: carAvatarUrl }} style={styles.resultAvatar} />
+                      ) : (
+                        <View style={styles.resultAvatarPlaceholder}>
+                          <Text style={styles.resultAvatarInitial}>{carInitial}</Text>
+                        </View>
+                      )}
+
+                      <View style={styles.resultContent}>
+                        <View style={styles.resultPlateRow}>
+                          <Image source={LTPlates} style={styles.resultPlateImage} />
+                          <Text style={styles.resultPlateText}>{item.plate}</Text>
+                        </View>
+                        <Text style={styles.resultModel}>
+                          {item.model || 'Žinomas automobilis'}
+                        </Text>
                       </View>
-                    )}
-                    
-                    <View style={styles.resultContent}>
-                      <View style={styles.resultPlateRow}>
-                        <Image source={LTPlates} style={styles.resultPlateImage} />
-                        <Text style={styles.resultPlateText}>{item.plate}</Text>
-                      </View>
-                      <Text style={styles.resultModel}>
-                        {item.model || 'Žinomas automobilis'}
-                      </Text>
-                    </View>
-                    <Ionicons style={styles.paperPlaneIcon} name="paper-plane-sharp" size={25} color="#64748b" />
-                  </TouchableOpacity>
+
+                      <Ionicons
+                        style={styles.paperPlaneIcon}
+                        name="paper-plane-sharp"
+                        size={25}
+                        color={COLORS.slate600}
+                      />
+                    </TouchableOpacity>
                   );
                 }}
               />
@@ -396,7 +430,7 @@ const SearchCar = () => {
           {!isSearching && searchPlate && searchResults.length === 0 && (
             <View style={styles.noResultsContainer}>
               <View style={styles.noResultsIconWrapper}>
-                <Ionicons name="alert-circle-outline" size={22} color="#f97316" />
+                <Ionicons name="alert-circle-outline" size={22} color={COLORS.orange} />
               </View>
               <View>
                 <Text style={styles.noResultsTitle}>Tokio automobilio nėra</Text>
@@ -415,7 +449,7 @@ const SearchCar = () => {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#020617',
+    backgroundColor: COLORS.bg,
   },
 
   background: {
@@ -435,34 +469,32 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 999,
-    backgroundColor: 'rgba(56,189,248,0.18)',
+    backgroundColor: COLORS.headerIconBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
 
-  headerTextWrapper: {
-    flex: 1,
-  },
+  headerTextWrapper: { flex: 1 },
 
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#e5e7eb',
+    color: COLORS.text,
   },
 
   headerSubtitle: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: COLORS.textMuted,
     marginTop: 4,
   },
 
   toggleContainer: {
     flexDirection: 'row',
     borderRadius: 999,
-    backgroundColor: 'rgba(15,23,42,0.9)',
+    backgroundColor: COLORS.toggleBg,
     borderWidth: 1,
-    borderColor: 'rgba(30,64,175,0.6)',
+    borderColor: COLORS.toggleBorder,
     padding: 4,
     marginBottom: 16,
     marginTop: 10
@@ -479,21 +511,19 @@ const styles = StyleSheet.create({
   },
 
   toggleButtonActive: {
-    backgroundColor: '#0ea5e9',
+    backgroundColor: COLORS.blue2,
   },
 
-  toggleIcon: {
-    marginRight: 6,
-  },
+  toggleIcon: { marginRight: 6 },
 
   toggleText: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: COLORS.textMuted,
     fontWeight: '600',
   },
 
   toggleTextActive: {
-    color: '#020617',
+    color: COLORS.bg,
   },
 
   plateLabelRow: {
@@ -505,13 +535,13 @@ const styles = StyleSheet.create({
   },
 
   label: {
-    color: '#e5e7eb',
+    color: COLORS.text,
     fontSize: 15,
     fontWeight: '600',
   },
 
   hint: {
-    color: '#6b7280',
+    color: COLORS.textHint,
     fontSize: 13,
     marginTop: 4,
   },
@@ -519,7 +549,7 @@ const styles = StyleSheet.create({
   tagChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(22,163,74,0.14)',
+    backgroundColor: COLORS.tagBg,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -527,7 +557,7 @@ const styles = StyleSheet.create({
 
   tagChipText: {
     fontSize: 11,
-    color: '#4ade80',
+    color: COLORS.green2,
     marginLeft: 4,
     fontWeight: '600',
   },
@@ -555,7 +585,7 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '800',
     letterSpacing: 3,
-    color: '#020617',
+    color: COLORS.bg,
     marginLeft: 50,
   },
 
@@ -564,13 +594,11 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
 
-  /* EMPTY STATE */
-
   emptyStateContainer: {
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.25)',
-    backgroundColor: 'rgba(15,23,42,0.85)',
+    borderColor: COLORS.emptyBorder,
+    backgroundColor: COLORS.emptyBg,
     paddingHorizontal: 16,
     paddingVertical: 18,
     alignItems: 'center',
@@ -589,57 +617,18 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#e5e7eb',
+    color: COLORS.text,
     marginBottom: 6,
     textAlign: 'center',
   },
 
   emptySubtitle: {
     fontSize: 13,
-    color: '#9ca3af',
+    color: COLORS.textMuted,
     textAlign: 'center',
     lineHeight: 18,
     marginBottom: 14,
   },
-
-  emptyCtaButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.4)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 10,
-    backgroundColor: 'rgba(56,189,248,0.12)',
-  },
-
-  emptyCtaButtonDisabled: {
-    borderColor: 'rgba(75,85,99,0.7)',
-    backgroundColor: 'transparent',
-  },
-
-  emptyCtaText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#020617',
-  },
-
-  emptyHintRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 2,
-  },
-
-  emptyHintText: {
-    fontSize: 11,
-    color: '#6b7280',
-    marginLeft: 6,
-    flex: 1,
-    lineHeight: 16,
-  },
-
-  /* LOADING / RESULTS / NO RESULTS */
 
   loadingContainer: {
     paddingVertical: 18,
@@ -650,15 +639,15 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 8,
     fontSize: 12,
-    color: '#9ca3af',
+    color: COLORS.textMuted,
   },
 
   resultsContainer: {
-    backgroundColor: 'rgba(15,23,42,0.9)',
+    backgroundColor: COLORS.resultsBg,
     borderRadius: 10,
     padding: 12,
     borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.25)',
+    borderColor: COLORS.resultsBorder,
     maxHeight: 230,
     marginTop: 12,
   },
@@ -673,7 +662,7 @@ const styles = StyleSheet.create({
   resultsTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#e5e7eb',
+    color: COLORS.text,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
@@ -683,10 +672,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 11,
     paddingHorizontal: 10,
-    backgroundColor: 'rgba(15,23,42,0.9)',
+    backgroundColor: COLORS.resultsBg,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(56,189,248,0.32)',
+    borderColor: COLORS.resultBorder,
   },
 
   resultAvatar: {
@@ -700,7 +689,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(56,189,248,0.25)',
+    backgroundColor: COLORS.avatarPlaceholderBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -709,22 +698,10 @@ const styles = StyleSheet.create({
   resultAvatarInitial: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#38bdf8',
+    color: COLORS.blue,
   },
 
-  resultIconWrapper: {
-    width: 34,
-    height: 34,
-    borderRadius: 999,
-    backgroundColor: 'rgba(15,118,110,0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-
-  resultContent: {
-    flex: 1,
-  },
+  resultContent: { flex: 1 },
 
   resultPlateRow: {
     width: 91,
@@ -746,13 +723,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 15,
     fontWeight: '800',
-    color: '#020617',
+    color: COLORS.bg,
     marginLeft: 20,
   },
 
   resultModel: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: COLORS.textMuted,
   },
 
   paperPlaneIcon: {
@@ -766,16 +743,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     marginTop: 16,
     borderRadius: 14,
-    backgroundColor: 'rgba(248,250,252,0.02)',
+    backgroundColor: COLORS.noResBg,
     borderWidth: 1,
-    borderColor: 'rgba(248,113,113,0.28)',
+    borderColor: COLORS.noResBorder,
   },
 
   noResultsIconWrapper: {
     width: 32,
     height: 32,
     borderRadius: 999,
-    backgroundColor: 'rgba(248,113,113,0.13)',
+    backgroundColor: COLORS.noResIconBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -784,15 +761,14 @@ const styles = StyleSheet.create({
   noResultsTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#fecaca',
+    color: COLORS.redSoftText,
   },
 
   noResultsSubtitle: {
     fontSize: 11,
-    color: '#fca5a5',
+    color: COLORS.redSoftText2,
     marginTop: 2,
   },
 });
 
 export default SearchCar;
-

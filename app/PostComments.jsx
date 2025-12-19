@@ -17,6 +17,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppContext } from '../context/AppContext';
+import { API_URL } from '../config/env';
 
 const PostComments = () => {
   const insets = useSafeAreaInsets();
@@ -34,8 +35,6 @@ const PostComments = () => {
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editingText, setEditingText] = useState('');
   const flatListRef = useRef(null);
-
-  const BASE_URL = 'http://192.168.1.165:4000';
 
   useEffect(() => {
     if (postId) {
@@ -185,7 +184,7 @@ const PostComments = () => {
 
   const renderComment = ({ item, index }) => {
     const carAvatarUrl = item.car?.avatar_url
-      ? `${BASE_URL}${item.car.avatar_url}`
+      ? `${API_URL}${item.car.avatar_url}`
       : null;
     const carInitial = item.car?.plate?.[0]?.toUpperCase() || '?';
 

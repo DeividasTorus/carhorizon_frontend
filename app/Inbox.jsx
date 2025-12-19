@@ -1,4 +1,4 @@
-// app/InboxScreen.jsx (arba kur jis pas tave yra)
+// app/InboxScreen.jsx
 import React, { useState } from 'react';
 import {
   View,
@@ -12,9 +12,9 @@ import { useRouter } from 'expo-router';
 import { useAppContext } from '../context/AppContext';
 import LicensePlate from '../components/LicensePlate';
 import CachedAvatar from '../components/CachedAvatar';
-import { Ionicons } from '@expo/vector-icons'; // Importuojame Ionicons
-
-const AVATAR_BASE_URL = 'http://192.168.1.165:4000';
+import { Ionicons } from '@expo/vector-icons';
+import { API_URL } from '../config/env';
+import COLORS from '../config/colors';
 
 const InboxScreen = () => {
   const { inboxMessages, user, activeCarId, cars } = useAppContext();
@@ -61,28 +61,26 @@ const InboxScreen = () => {
 
   const activeCarLabel = activeCar
     ? `${activeCar.plate}${activeCar.model ? ' · ' + activeCar.model : ''}`
-    : 'Pasirinktas automobilis: Visi'; // Pakeista label'o reikšmė, jei nepasirinkta mašina
+    : 'Pasirinktas automobilis: Visi';
 
   const renderItem = ({ item }) => {
     const isOwner = myId && String(item.owner_id) === myId;
 
-    // Support multiple possible shapes from the backend and ensure we pick
-    // the avatar for the *other* participant (not the current user).
     const otherUserObj = item.other_user || null;
     const ownerObj = item.owner || null;
 
-    // Determine which participant is the "other" (not me)
     const ownerId = item.owner_id ? String(item.owner_id) : null;
     const otherUserIdField = item.other_user_id ? String(item.other_user_id) : null;
     const otherParticipantId = myId && ownerId && otherUserIdField
       ? (String(ownerId) === myId ? otherUserIdField : ownerId)
-      : otherUserIdField || ownerId || (otherUserObj?.id && String(otherUserObj.id)) || (ownerObj?.id && String(ownerObj.id)) || null;
+      : otherUserIdField ||
+        ownerId ||
+        (otherUserObj?.id && String(otherUserObj.id)) ||
+        (ownerObj?.id && String(ownerObj.id)) ||
+        null;
 
-    // Get car avatar - cars now have avatars, not users
-    // Backend should provide car info with avatar_url
     let otherAvatarPath = null;
 
-    // Try to get car avatar from various possible fields
     if (item.display_car_avatar_url) {
       otherAvatarPath = item.display_car_avatar_url;
     } else if (item.car?.avatar_url) {
@@ -91,7 +89,6 @@ const InboxScreen = () => {
       otherAvatarPath = item.other_car.avatar_url;
     }
 
-    // Fallback: if we have car objects in user data
     if (!otherAvatarPath && otherUserObj?.car?.avatar_url) {
       otherAvatarPath = otherUserObj.car.avatar_url;
     }
@@ -104,14 +101,13 @@ const InboxScreen = () => {
       if (/^https?:\/\//i.test(otherAvatarPath)) {
         avatarUrl = otherAvatarPath;
       } else {
-        avatarUrl = `${AVATAR_BASE_URL}${otherAvatarPath}`;
+        avatarUrl = `${API_URL}${otherAvatarPath}`;
       }
     }
 
     const carPlate = item.display_car_plate || '';
     const carModel = item.display_car_model || '';
 
-    // Get other car ID for navigation to CarProfile
     let otherCarId = null;
     if (item.other_car_id) {
       otherCarId = item.other_car_id;
@@ -127,7 +123,7 @@ const InboxScreen = () => {
 
     const hasUnread = !!item.has_unread;
 
-    const title = carPlate || 'Kitas vairuotojas'; // Pakeista kalba
+    const title = carPlate || 'Kitas vairuotojas';
 
     const handlePress = () => {
       const chatId = item.id || item.chatId;
@@ -219,14 +215,11 @@ const InboxScreen = () => {
     <View style={styles.screen}>
       <StatusBar style="light" />
 
-      {/* ATNAUJINTAS HEADERIS */}
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
-          {/* Antraštės Ikona */}
           <View style={styles.headerIconWrapper}>
-            <Ionicons name="reader-outline" size={26} color="#38bdf8" />
+            <Ionicons name="reader-outline" size={26} color={COLORS.primary2} />
           </View>
-          {/* Antraštės Tekstas */}
           <Text style={styles.headerTitle}>Pokalbiai</Text>
         </View>
 
@@ -313,7 +306,7 @@ const InboxScreen = () => {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#020617',
+    backgroundColor: COLORS.dark,          // '#020617'
     paddingHorizontal: 10,
     paddingTop: 20,
   },
@@ -321,7 +314,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
-  // NAUJAS STILIUS PRADŽIA
   headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -331,23 +323,22 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 999,
-    backgroundColor: 'rgba(56,189,248,0.18)',
+    backgroundColor: 'rgba(56,189,248,0.18)', // original rgba kept
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   headerTitle: {
-    fontSize: 20, // Padidintas dydis
+    fontSize: 20,
     fontWeight: '800',
-    color: '#e5e7eb',
+    color: COLORS.text,                    // '#e5e7eb'
   },
-  // NAUJAS STILIUS PABAIGA
 
   headerControlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginTop: 10, // Papildomas tarpas po pagrindine antrašte
+    marginTop: 10,
   },
   activeCarPill: {
     flex: 1,
@@ -355,12 +346,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#1f2937',
-    backgroundColor: '#02081f',
+    borderColor: COLORS.border,            // '#1f2937'
+    backgroundColor: COLORS.panel,         // '#02081f'
     justifyContent: 'center',
   },
   activeCarLabel: {
-    color: '#e5e7eb',
+    color: COLORS.text,                    // '#e5e7eb'
     fontSize: 13,
     fontWeight: '600',
   },
@@ -376,20 +367,20 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#1f2937',
-    backgroundColor: '#020617',
+    borderColor: COLORS.border,            // '#1f2937'
+    backgroundColor: COLORS.dark,          // '#020617'
   },
   filterButtonActive: {
-    backgroundColor: '#0ea5e9',
-    borderColor: '#0ea5e9',
+    backgroundColor: COLORS.primary,       // '#0ea5e9'
+    borderColor: COLORS.primary,           // '#0ea5e9'
   },
   filterButtonText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#9ca3af',
+    color: COLORS.muted,                   // '#9ca3af'
   },
   filterButtonTextActive: {
-    color: '#0b1120',
+    color: COLORS.ink,                     // '#0b1120'
   },
   filterBadge: {
     marginLeft: 6,
@@ -398,21 +389,21 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#1f2937',
+    borderColor: COLORS.border,            // '#1f2937'
     justifyContent: 'center',
     alignItems: 'center',
   },
   filterBadgeActive: {
-    borderColor: '#0b1120',
-    backgroundColor: '#0b1120',
+    borderColor: COLORS.ink,               // '#0b1120'
+    backgroundColor: COLORS.ink,           // '#0b1120'
   },
   filterBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#f9fafb',
+    color: COLORS.textStrong,              // '#f9fafb'
   },
   filterBadgeTextActive: {
-    color: '#f9fafb',
+    color: COLORS.textStrong,              // '#f9fafb'
   },
   listContent: {
     paddingBottom: 24,
@@ -423,7 +414,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-    color: '#6b7280',
+    color: COLORS.gray,                    // '#6b7280'
     fontSize: 14,
   },
   card: {
@@ -447,9 +438,9 @@ const styles = StyleSheet.create({
     width: 15,
     height: 15,
     borderRadius: 5,
-    backgroundColor: '#ef4444',
+    backgroundColor: COLORS.rose,          // '#ef4444'
     borderWidth: 1,
-    borderColor: '#020617',
+    borderColor: COLORS.dark,              // '#020617'
   },
   cardContent: {
     flex: 1,
@@ -463,28 +454,28 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: '400',
-    color: '#f9fafb',
+    color: COLORS.textStrong,              // '#f9fafb'
   },
   cardTitleUnread: {
     fontWeight: '800',
-    color: '#ffffff',
+    color: COLORS.white,                   // '#ffffff'
   },
   cardMeta: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: COLORS.muted,                   // '#9ca3af'
   },
   cardMetaUnread: {
     fontWeight: '600',
-    color: '#e5e7eb',
+    color: COLORS.text,                    // '#e5e7eb'
   },
   lastMessage: {
     marginTop: 4,
     fontSize: 13,
-    color: '#9ca3af',
+    color: COLORS.muted,                   // '#9ca3af'
   },
   lastMessageUnread: {
     fontWeight: '700',
-    color: '#f1f5f9',
+    color: COLORS.slate100,                // '#f1f5f9'
   },
 });
 
